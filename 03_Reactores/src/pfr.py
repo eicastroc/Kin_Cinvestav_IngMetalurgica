@@ -7,6 +7,7 @@ E-mail: edgar.castro@cinvestav.mx
 
 #%% Imports
 import numpy as np
+from scipy.integrate import solve_ivp
 
 
 
@@ -102,3 +103,54 @@ def pfrXEnd(V, X, Q, cA0, k, order=1):
     """
     return 1 - X[0]
 pfrXEnd.terminal = True
+
+
+
+
+def pfrXFun(Xo, k, cA0, Q, Vn, order=1):
+    sol = solve_ivp(
+        pfrX, 
+        (0, Vn),
+        y0=[Xo], 
+        args=(Q, cA0, k, order)
+    )
+    Xn=sol.y[0][-1]
+    return Xn
+
+
+def pfrInSeriesX(num_pfrs, k, cA0, Q, V_total, order=1, Xo=0):
+    eps=1e-10
+    V = V_total / num_pfrs
+
+    # PFR Calculations for Cumulative Conversion
+    pfr_indices = np.arange(0, num_pfrs + 1)
+    X_pfr_cumulative = np.zeros(num_pfrs + 1)  # Cumulative conversion after each CSTR
+    X_pfr_cumulative[0] = Xo  # Initial cumulative conversion (no reaction
+
+    for i in range(1, num_pfrs + 1):
+        Xo = X_pfr_cumulative[i-1]
+        # Conversion in the current PFR step
+        Xn = pfrXFun(Xo, k, cA0, Q, V, order)
+        # Update cumulative conversion
+        X_pfr_cumulative[i] = min(1.0*Xn, 1.0)
+
+    return pfr_indices, X_pfr_cumulative
+
+
+def pfrInParallelX(num_pfrs, k, cA0, Q, V_total, order=1, Xo=0):
+    eps = 1e-10
+    V = V_total / num_pfrs
+    Q = Q / num_pfrs
+
+    # PFR Calculations for parallel conversion
+    pfr_indices = np.arange(1, num_pfrs+1)
+    X_pfr_paral = np.zeros(num_pfrs)
+    
+    for i in range(0, num_pfrs):
+        # Conversion in the current PFR step
+        Xn = pfrXFun(Xo, k, cA0, Q, V, order)
+        # Update conversion
+        X_pfr_paral[i] = min(1.0*Xn, 1.0)
+   
+
+    return pfr_indices, X_pfr_paral
